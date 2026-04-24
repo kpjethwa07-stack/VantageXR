@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@1,700;1,900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Playfair Display", serif;
+
+  --color-medical-primary: #020617;
+  --color-medical-secondary: #475569;
+  --color-medical-accent: #0ea5e9;
+  --color-medical-header: #020617;
+  --color-medical-bg: #f1f5f9;
+  --color-medical-border: #e2e8f0;
+  --color-medical-success: #10b981;
+  --color-medical-error: #ef4444;
+  --color-medical-warning: #f59e0b;
+}
+
+@layer base {
+  body {
+    @apply bg-medical-bg text-medical-primary font-sans antialiased overflow-hidden;
+  }
+
+  /* Professional high-contrast scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+  }
+}
+
+.card {
+  @apply bg-white border border-medical-border rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.03)];
+}
+
+.section-label {
+  @apply text-[9px] uppercase font-black text-slate-500 tracking-[0.15em] flex items-center gap-2;
+}
+
+.medical-sub-label {
+  @apply text-[8px] font-black text-slate-400 tracking-widest uppercase;
+}
+
+/* Data value formatting */
+.data-value {
+  @apply font-mono text-[11px] tracking-tight text-slate-700;
+}
+
+/* Status Badges - Technical Grid Style */
+.status-badge {
+  @apply px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-[0.1em] border;
+}
+
+.status-match { @apply bg-emerald-50 text-emerald-600 border-emerald-100 shadow-[0_0_8px_rgba(16,185,129,0.1)]; }
+.status-conflict { @apply bg-rose-50 text-rose-600 border-rose-100 shadow-[0_0_8px_rgba(239,68,68,0.1)]; }
+.status-partial { @apply bg-amber-50 text-amber-600 border-amber-100 shadow-[0_0_8px_rgba(245,158,11,0.1)]; }
+
+/* Subtle Technical Animations */
+@keyframes scan-pulse {
+  0% { transform: scaleX(0); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+
+.scanning-line {
+  @apply absolute h-[1px] w-full bg-medical-accent/30;
+  animation: scan-pulse 2s infinite linear;
+}
+
+/* Glass Panels */
+.medical-glass {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+}
+
+/* Italic Serif Headers - Human Touch in Data */
+.human-touch {
+  @apply font-serif italic text-slate-800;
+}
+
+/* Layout Rails */
+.technical-rail {
+  @apply border-l border-slate-200 pl-4 py-1;
+}

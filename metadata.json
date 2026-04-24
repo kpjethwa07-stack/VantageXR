@@ -1,0 +1,10 @@
+{
+  "name": "X2",
+  "description": "An advanced radiological claim auditor (VantageXR) for the AB PMJAY scheme that performs multimodal analysis of medical scans and reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "AI-powered image analysis",
+    "Medical report auditing",
+    "Radiological feature extraction"
+  ]
+}
