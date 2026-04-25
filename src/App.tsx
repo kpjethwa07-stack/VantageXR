@@ -30,9 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { adjudicate, AdjudicationResult } from "./services/gemini";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
+import { adjudicate, AdjudicationResult, hasValidKey, setGeminiApiKey } from "./services/gemini";
 import { VolumeViewer } from "./components/VolumeViewer";
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { DEMO_CASES, generateDemoImage } from "./services/demo";
@@ -60,14 +58,14 @@ export default function App() {
     }
   });
   const [viewingHistory, setViewingHistory] = useState(false);
-  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [demoStep, setDemoStep] = useState(0);
+  const [showKeyModal, setShowKeyModal] = useState(!hasValidKey());
+  const [tempKey, setTempKey] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reportFileInputRef = useRef<HTMLInputElement>(null);
-  const resultRef = useRef<HTMLDivElement>(null);
 
   const saveToHistory = (newResult: AdjudicationResult) => {
     const updatedHistory = [newResult, ...history].slice(0, 20); // Keep last 20
@@ -107,96 +105,11 @@ export default function App() {
     }
   };
 
-  const handleDownloadPDF = async () => {
-    if (!resultRef.current || isDownloadingPDF) return;
-
-    setIsDownloadingPDF(true);
-    try {
-      // Small delay to ensure any layout shifts or animations finish
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const element = resultRef.current;
-
-      // Capture with advanced options for full-page rendering
-      const canvas = await html2canvas(element, {
-        scale: 2, // High resolution
-        useCORS: true,
-        backgroundColor: "#f8fafc",
-        windowWidth: 1400, // Fixed width for consistent layout
-        height: element.scrollHeight, // Force full height of the scrollable content
-        y: 0,
-        onclone: (clonedDoc) => {
-          // Find the container in the clone and force it to show all content
-          const clonedElement = clonedDoc.getElementById(
-            "audit-result-container",
-          );
-          if (clonedElement) {
-            clonedElement.style.overflow = "visible";
-            clonedElement.style.height = "auto";
-            clonedElement.style.maxHeight = "none";
-          }
-
-          // FIX: html2canvas does not support oklch() colors (Tailwind v4 default)
-          // We must replace these with standard RGB/Hex fallbacks in the clone
-          const allElements = clonedDoc.getElementsByTagName("*");
-          for (let i = 0; i < allElements.length; i++) {
-            const el = allElements[i] as HTMLElement;
-            const computedStyle = window.getComputedStyle(el);
-
-            // Check major color properties
-            [
-              "backgroundColor",
-              "color",
-              "borderColor",
-              "fill",
-              "stroke",
-            ].forEach((prop) => {
-              const val = (computedStyle as any)[prop];
-              if (val && val.includes("oklch")) {
-                // Simple mapping for medical brand colors or fallback to black/white
-                if (prop === "backgroundColor")
-                  el.style.backgroundColor = "#ffffff";
-                else if (prop === "color") el.style.color = "#0f172a";
-                else (el.style as any)[prop] = "#cbd5e1";
-              }
-            });
-          }
-
-          // Force a specific style block to override dynamic variables
-          const style = clonedDoc.createElement("style");
-          style.innerHTML = `
-            * { 
-              color-scheme: light !important; 
-              -webkit-print-color-adjust: exact !important;
-            }
-            .card { background-color: #ffffff !important; border-color: #e2e8f0 !important; }
-            .bg-slate-900 { background-color: #0f172a !important; }
-            .bg-sky-500 { background-color: #0ea5e9 !important; }
-            .text-sky-400 { color: #38bdf8 !important; }
-            .text-slate-900 { color: #0f172a !important; }
-          `;
-          clonedDoc.head.appendChild(style);
-        },
-      });
-
-      const imgData = canvas.toDataURL("image/png", 1.0);
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "px",
-        format: [canvas.width, canvas.height],
-      });
-
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-      pdf.save(
-        `VantageXR_Technical_Audit_${new Date().toISOString().split("T")[0]}.pdf`,
-      );
-    } catch (err) {
-      console.error("Critical: PDF generation failure:", err);
-      setError(
-        "Medical Audit PDF generation failed. Please try again or use browser print (Ctrl+P).",
-      );
-    } finally {
-      setIsDownloadingPDF(false);
+  const handleSaveKey = () => {
+    if (tempKey.trim().length > 10) {
+      setGeminiApiKey(tempKey.trim());
+      setShowKeyModal(false);
+      window.location.reload(); // Reload to re-initialize AI service
     }
   };
 
@@ -362,6 +275,15 @@ export default function App() {
               />
             </div>
           </div>
+
+          {/* Settings / API Key Button */}
+          <button
+            onClick={() => setShowKeyModal(true)}
+            className="p-2 hover:bg-white/10 rounded transition-colors text-white/60 hover:text-white"
+            title="API Settings"
+          >
+            <ShieldCheck className="w-4 h-4" />
+          </button>
         </div>
       </nav>
 
@@ -849,7 +771,6 @@ export default function App() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="h-full flex flex-col overflow-hidden"
-                ref={resultRef}
               >
                 {/* DYNAMIC CASE HEADER */}
                 <header className="bg-white border-b border-medical-border px-8 py-4 flex items-center justify-between shrink-0 h-20 shadow-sm z-10 relative overflow-hidden">
@@ -903,27 +824,6 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleDownloadPDF}
-                      disabled={isDownloadingPDF}
-                      className={`flex items-center gap-2.5 px-5 py-2.5 rounded transition-all font-black text-[10px] uppercase tracking-widest border h-11 ${
-                        isDownloadingPDF
-                          ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                          : "bg-white hover:bg-slate-50 text-medical-primary border-medical-border active:scale-95"
-                      }`}
-                    >
-                      {isDownloadingPDF ? (
-                        <>
-                          <RefreshCcw className="w-4 h-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-4 h-4 text-medical-accent" />
-                          Export_Audit_Doc
-                        </>
-                      )}
-                    </button>
                     <button
                       onClick={reset}
                       className="px-6 py-2.5 bg-medical-primary text-white rounded text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl h-11 active:scale-95 border-b-2 border-medical-accent"
@@ -1589,6 +1489,71 @@ export default function App() {
         isOpen={isAnalyticsOpen}
         onClose={() => setIsAnalyticsOpen(false)}
       />
+
+      {/* API KEY MODAL */}
+      <AnimatePresence>
+        {showKeyModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-xl bg-slate-900/80"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200"
+            >
+              <div className="bg-medical-primary p-6 text-white relative">
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                  <ShieldCheck className="w-24 h-24" />
+                </div>
+                <h3 className="text-lg font-black uppercase tracking-widest mb-1">Secure_Key_Entry</h3>
+                <p className="text-[10px] font-bold text-sky-300/80 tracking-tighter">MULTIMODAL_ENGINE_AUTHENTICATION_REQUIRED</p>
+              </div>
+              
+              <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <p className="text-[12px] text-slate-600 font-bold leading-relaxed">
+                    To enable the radiological adjudication engine, please provide your <span className="text-medical-accent">Google Gemini API Key</span>. This key is stored locally in your browser and is never sent to our servers.
+                  </p>
+                  
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={tempKey}
+                      onChange={(e) => setTempKey(e.target.value)}
+                      placeholder="Enter API Key (AIza...)"
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:border-medical-accent focus:ring-4 focus:ring-sky-100 outline-none transition-all"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold bg-slate-50 p-3 rounded border border-slate-100">
+                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                    <span>Get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-medical-accent hover:underline">Google AI Studio</a></span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSaveKey}
+                    disabled={tempKey.length < 10}
+                    className="flex-1 py-4 bg-slate-900 hover:bg-black disabled:bg-slate-200 text-white rounded-lg font-black text-[12px] uppercase tracking-widest shadow-xl transition-all"
+                  >
+                    Initialize_Engine
+                  </button>
+                  <button
+                    onClick={() => setShowKeyModal(false)}
+                    className="px-6 py-4 bg-white border border-slate-200 text-slate-400 hover:text-slate-600 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

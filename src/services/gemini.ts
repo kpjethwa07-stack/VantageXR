@@ -1,7 +1,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
-const ai = new GoogleGenAI({ apiKey });
+// Initialize with environment variable or localStorage
+const getInitialKey = () => {
+  return import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem("VANTAGEXR_API_KEY") || "";
+};
+
+let ai = new GoogleGenAI({ apiKey: getInitialKey() });
+
+export const setGeminiApiKey = (key: string) => {
+  localStorage.setItem("VANTAGEXR_API_KEY", key);
+  ai = new GoogleGenAI({ apiKey: key });
+};
+
+export const hasValidKey = () => {
+  const key = getInitialKey();
+  return key && key.length > 10; // Basic check
+};
 
 export interface AdjudicationResult {
   findings: string[];
